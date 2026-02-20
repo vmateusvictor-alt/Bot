@@ -1,90 +1,118 @@
 import os
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    CallbackQueryHandler,
     ContextTypes,
 )
+
 from config import BOT_TOKEN
-from utils.aggregator import get_all_completed
+from utils.aggregator import search_completed
 from utils.volumes import split_into_volumes
 from utils.cbz import create_volume_cbz
 
 
-async def finalizados(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    mangas, manhwas = await get_all_completed()
+# ================= START =================
 
-    context.chat_data["mangas"] = mangas
-    context.chat_data["manhwas"] = manhwas
-
-    text = f"""
-📚 Mangás finalizados: {len(mangas)}
-📖 Manhwas finalizados: {len(manhwas)}
-Total: {len(mangas) + len(manhwas)}
-"""
-
-    buttons = [
-        [InlineKeyboardButton("📥 Baixar Mangás", callback_data="download_manga")],
-        [InlineKeyboardButton("📥 Baixar Manhwas", callback_data="download_manhwa")]
-    ]
-
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📚 Bot Online!\n\n"
+        "Use:\n"
+        "/bb3 nome_do_manga\n\n"
+        "Exemplo:\n"
+        "/bb3 solo leveling"
+    )
 
 
-async def download_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+# ================= BB3 =================
 
-    data = query.data
+async def bb3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        return await update.message.reply_text(
+            "Use:\n/bb3 nome_do_manga"
+        )
 
-    if data == "download_manga":
-        items = context.chat_data.get("mangas", [])
-    else:
-        items = context.chat_data.get("manhwas", [])
+    query = " ".join(context.args)
 
-    for manga in items:
-        await process_manga(query.message, manga)
+    msg = await update.message.reply_text("🔎 Buscando mangá finalizado...")
+
+    results = await search_completed(query)
+
+    if not results:
+        return await msg.edit_text("❌ Nenhum mangá/manhwa finalizado encontrado.")
+
+    # Processa um por vez (seguro pro Railway)
+    for manga in results:
+        await process_manga(update, manga)
+
+    await msg.delete()
 
 
-async def process_manga(message, manga):
+# ================= PROCESSAR MANGA =================
+
+async def process_manga(update: Update, manga: dict):
     title = manga["title"]
-    cover = manga["cover"]
-    chapters = manga["chapters"]
+    cover = manga.get("cover")
+    chapters = manga.get("chapters", [])
     source = manga["source"]
+    manga_type = manga["type"]
+
+    if not chapters:
+        return
 
     volumes = split_into_volumes(chapters, 50)
 
-    await message.reply_photo(
-        photo=cover,
-        caption=f"""
-📖 {title}
-📌 Status: Finalizado
-📊 Capítulos: {len(chapters)}
-📦 Volumes: {len(volumes)}
-"""
-    )
+    # Envia capa + infos
+    if cover:
+        await update.message.reply_photo(
+            photo=cover,
+            caption=(
+                f"📖 {title}\n"
+                f"📚 Tipo: {manga_type}\n"
+                f"📌 Status: Finalizado\n"
+                f"📊 Capítulos: {len(chapters)}\n"
+                f"📦 Volumes: {len(volumes)}"
+            )
+        )
+    else:
+        await update.message.reply_text(
+            f"📖 {title}\n"
+            f"📚 Tipo: {manga_type}\n"
+            f"📌 Status: Finalizado\n"
+            f"📊 Capítulos: {len(chapters)}\n"
+            f"📦 Volumes: {len(volumes)}"
+        )
 
+    # Envia volumes sequencialmente (anti crash)
     for i, volume in enumerate(volumes, start=1):
-        cbz_path, cbz_name = await create_volume_cbz(
-            source, volume, title, i
-        )
+        try:
+            cbz_path, cbz_name = await create_volume_cbz(
+                source, volume, title, i
+            )
 
-        await message.reply_document(
-            document=open(cbz_path, "rb"),
-            filename=cbz_name
-        )
+            await update.message.reply_document(
+                document=open(cbz_path, "rb"),
+                filename=cbz_name
+            )
 
-        os.remove(cbz_path)
-        await asyncio.sleep(0.5)
+            os.remove(cbz_path)
 
+            await asyncio.sleep(0.5)
+
+        except Exception:
+            continue
+
+
+# ================= MAIN =================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("finalizados", finalizados))
-    app.add_handler(CallbackQueryHandler(download_type, pattern="^download_"))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("bb3", bb3))
+
+    print("BOT INICIADO COM SUCESSO")
 
     app.run_polling()
 
