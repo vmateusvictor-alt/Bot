@@ -20,11 +20,6 @@ class MangaFlixSource:
 
             data = r.json().get("data", {})
 
-        status_raw = str(data.get("status", "")).lower()
-
-        if "complete" not in status_raw:
-            return None
-
         type_raw = str(data.get("type", "")).lower()
         manga_type = "Manhwa" if "manhwa" in type_raw else "Manga"
 
@@ -38,7 +33,6 @@ class MangaFlixSource:
 
         return {
             "title": data.get("name"),
-            "status": "completed",
             "type": manga_type,
             "cover": data.get("poster", {}).get("default_url"),
             "chapters": chapters,
