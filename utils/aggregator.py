@@ -1,4 +1,3 @@
-import asyncio
 from utils.loader import get_all_sources
 
 
@@ -9,14 +8,14 @@ def normalize_type(raw_type):
     return "Manga"
 
 
-async def get_all_completed():
+async def search_completed(query: str):
     sources = get_all_sources()
     unique = {}
 
-    for name, source in sources.items():
+    for source_name, source in sources.items():
         try:
-            results = await source.search("")
-        except:
+            results = await source.search(query)
+        except Exception:
             continue
 
         for manga in results:
@@ -25,7 +24,7 @@ async def get_all_completed():
                 if not details:
                     continue
 
-                if details["status"] != "completed":
+                if details.get("status") != "completed":
                     continue
 
                 key = details["title"].strip().lower()
@@ -33,10 +32,7 @@ async def get_all_completed():
                 if key not in unique:
                     unique[key] = details
 
-            except:
+            except Exception:
                 continue
 
-    mangas = [m for m in unique.values() if m["type"] == "Manga"]
-    manhwas = [m for m in unique.values() if m["type"] == "Manhwa"]
-
-    return mangas, manhwas
+    return list(unique.values())
