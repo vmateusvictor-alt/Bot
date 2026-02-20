@@ -21,7 +21,7 @@ async def get_genre_id(genre_name: str):
     return None
 
 
-async def get_completed_by_genre(genre_name: str):
+async def get_all_by_genre(genre_name: str):
     genre_id = await get_genre_id(genre_name)
     if not genre_id:
         return [], []
@@ -58,9 +58,6 @@ async def get_completed_by_genre(genre_name: str):
 
                 details = await source.details(manga_id)
                 if not details:
-                    continue
-
-                if details.get("status") != "completed":
                     continue
 
                 if details["type"] == "Manhwa":
