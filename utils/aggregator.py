@@ -5,10 +5,14 @@ MANGAFLIX_API = "https://api.mangaflix.net/v1"
 
 
 async def get_genre_id(genre_name: str):
-    url = f"{MANGAFLIX_API}/genres?include_adult=true&selected_language=pt-br"
+    url = f"{MANGAFLIX_API}/genres"
+    params = {
+        "include_adult": "true",
+        "selected_language": "pt-br"
+    }
 
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.get(url)
+        r = await client.get(url, params=params)
         if r.status_code != 200:
             return None
 
@@ -40,7 +44,8 @@ async def get_all_by_genre(genre_name: str):
             params = {
                 "offset": offset,
                 "limit": limit,
-                "include_adult": "true"
+                "include_adult": "true",
+                "selected_language": "pt-br"
             }
 
             r = await client.get(url, params=params)
