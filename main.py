@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 
 from config import BOT_TOKEN
-from utils.aggregator import get_completed_by_genre
+from utils.aggregator import get_all_by_genre
 from utils.volumes import split_into_volumes
 from utils.cbz import create_volume_cbz
 
@@ -30,18 +30,18 @@ async def bb3(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = await update.message.reply_text("🔎 Buscando...")
 
-    mangas, manhwas = await get_completed_by_genre(genre)
+    mangas, manhwas = await get_all_by_genre(genre)
 
     if not mangas and not manhwas:
-        return await msg.edit_text("❌ Nenhum finalizado encontrado.")
+        return await msg.edit_text("❌ Nenhum resultado encontrado.")
 
     context.chat_data["mangas"] = mangas
     context.chat_data["manhwas"] = manhwas
 
     text = (
         f"📖 Gênero: {genre}\n\n"
-        f"📚 Mangás finalizados: {len(mangas)}\n"
-        f"📘 Manhwas finalizados: {len(manhwas)}"
+        f"📚 Mangás: {len(mangas)}\n"
+        f"📘 Manhwas: {len(manhwas)}"
     )
 
     buttons = [
@@ -83,7 +83,6 @@ async def process_manga(message, manga):
             caption=(
                 f"📖 {title}\n"
                 f"📚 Tipo: {manga_type}\n"
-                f"📌 Status: Finalizado\n"
                 f"📊 Capítulos: {len(chapters)}\n"
                 f"📦 Volumes: {len(volumes)}"
             )
